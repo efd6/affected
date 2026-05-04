@@ -1,8 +1,9 @@
 # affected
 
 `affected` identifies Go packages within a module that are transitively
-affected by changes between two git commits. It outputs one package
-import path per line, suitable for passing directly to `go test`.
+affected by changes between two git refs or uncommitted working-tree
+changes. It outputs one package import path per line, suitable for
+passing directly to `go test`.
 
 ## Install
 
@@ -17,7 +18,9 @@ affected [flags] [from-ref] [to-ref]
 ```
 
 With no arguments, it computes the merge-base against the upstream
-default branch and compares to HEAD — the common CI case.
+default branch and compares to HEAD — the common CI case. If the
+working tree has uncommitted changes (staged or unstaged), it
+includes those automatically.
 
 ### Flags
 
@@ -34,6 +37,12 @@ Run tests for everything affected since the branch diverged:
 
 ```
 go test $(affected -relative)
+```
+
+Test uncommitted work (no commit needed):
+
+```
+affected -relative
 ```
 
 Explicit commit range:
@@ -95,7 +104,8 @@ omitted entirely.
 
 ## How it works
 
-1. Runs `git diff --name-only` between the two refs to get changed files.
+1. Runs `git diff --name-only` between the base ref and the target
+   (HEAD, or the working tree when uncommitted changes exist).
 2. Maps each changed file to its owning Go package (walking up from
    subdirectories like `testdata/` to find the nearest enclosing package).
 3. Builds a reverse import graph of the module using `go list -json ./...`.

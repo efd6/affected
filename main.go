@@ -1,7 +1,7 @@
 // Command affected identifies Go packages within a module that are
-// transitively affected by a set of changes between two git commits.
-// It outputs one package import path per line, suitable for passing
-// to go test.
+// transitively affected by a set of changes between two git refs or
+// against the working tree. It outputs one package import path per
+// line, suitable for passing to go test.
 package main
 
 import (
@@ -42,6 +42,9 @@ func main() {
 	modRoot, modPath, err := moduleInfo()
 	if err != nil {
 		log.Fatal(err)
+	}
+	if flag.NArg() == 0 && isDirty(modRoot) {
+		to = ""
 	}
 
 	changed, goModChanged, err := changedFiles(modRoot, from, to)
@@ -216,6 +219,14 @@ func moduleInfo() (root, modPath string, err error) {
 	}
 	modPath = strings.TrimSpace(string(out))
 	return root, modPath, nil
+}
+
+// isDirty reports whether the working tree has uncommitted changes
+// (staged or unstaged) relative to HEAD.
+func isDirty(dir string) bool {
+	cmd := exec.Command("git", "diff", "--quiet", "HEAD")
+	cmd.Dir = dir
+	return cmd.Run() != nil
 }
 
 func toRelative(importPath, modPath string) string {

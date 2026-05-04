@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"golang.org/x/mod/modfile"
@@ -31,7 +33,15 @@ func goModSeeds(modRoot, from, to string, pkgs map[string]*packageInfo) (map[str
 }
 
 // goModAt retrieves the go.mod file content at a specific git ref.
+// If ref is empty, the file is read from the working tree.
 func goModAt(modRoot, ref string) (*modfile.File, error) {
+	if ref == "" {
+		out, err := os.ReadFile(filepath.Join(modRoot, "go.mod"))
+		if err != nil {
+			return nil, fmt.Errorf("reading go.mod: %w", err)
+		}
+		return modfile.Parse("go.mod", out, nil)
+	}
 	cmd := exec.Command("git", "show", ref+":go.mod")
 	cmd.Dir = modRoot
 	out, err := cmd.Output()

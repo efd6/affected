@@ -11,12 +11,21 @@ import (
 
 // changedFiles returns the set of files changed between from and to,
 // grouped by the directory relative to modRoot. It also reports whether
-// go.mod was among the changed files.
+// go.mod was among the changed files. If to is empty, the diff is
+// between from and the working tree (staged + unstaged).
 func changedFiles(modRoot, from, to string) (files map[string][]string, goModChanged bool, err error) {
-	cmd := exec.Command("git", "diff", "--name-only", from+"..."+to)
+	var cmd *exec.Cmd
+	if to == "" {
+		cmd = exec.Command("git", "diff", "--name-only", from)
+	} else {
+		cmd = exec.Command("git", "diff", "--name-only", from+"..."+to)
+	}
 	cmd.Dir = modRoot
 	out, err := cmd.Output()
 	if err != nil {
+		if to == "" {
+			return nil, false, fmt.Errorf("git diff --name-only %s: %w", from, err)
+		}
 		return nil, false, fmt.Errorf("git diff --name-only %s...%s: %w", from, to, err)
 	}
 
