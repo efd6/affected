@@ -233,7 +233,7 @@ func toRelative(importPath, modPath string) string {
 type affectedPkg struct {
 	ImportPath string   `json:"import_path"`
 	Direct     bool     `json:"direct"`
-	Tags       []string `json:"tags"`
+	Tags       []string `json:"tags,omitempty"`
 }
 
 func writeJSON(sorted []string, seeds map[string]bool, pkgs map[string]*packageInfo, modPath string, rel bool) {
@@ -244,11 +244,8 @@ func writeJSON(sorted []string, seeds map[string]bool, pkgs map[string]*packageI
 			display = toRelative(p, modPath)
 		}
 		var tags []string
-		if pkg := pkgs[p]; pkg != nil {
+		if pkg := pkgs[p]; pkg != nil && pkg.Configs != nil {
 			tags = pkg.Configs
-		}
-		if tags == nil {
-			tags = []string{}
 		}
 		out[i] = affectedPkg{
 			ImportPath: display,

@@ -28,14 +28,21 @@ type packageInfo struct {
 	Configs []string `json:"-"`
 }
 
-// listAllPackages runs go list -json ./... once per tag configuration
-// and merges the results. The configs slice contains the individual tag
-// values to test; a no-tag run (labelled "-") is always included.
+// listAllPackages runs go list -json ./... for each configuration in
+// configs and merges the results. When configs is empty, a single
+// no-tag run is performed without config annotations. The special
+// value "-" in configs means "run without build tags".
 func listAllPackages(modRoot string, configs []string) (map[string]*packageInfo, error) {
-	labels := append([]string{"-"}, configs...)
+	if len(configs) == 0 {
+		data, err := runGoList(modRoot, "")
+		if err != nil {
+			return nil, err
+		}
+		return parsePackages(data)
+	}
 
 	merged := make(map[string]*packageInfo)
-	for _, cfg := range labels {
+	for _, cfg := range configs {
 		var tags string
 		if cfg != "-" {
 			tags = cfg

@@ -23,8 +23,8 @@ default branch and compares to HEAD — the common CI case.
 
 | Flag | Description |
 |------|-------------|
-| `-tags` | Build tags (comma-separated); `go list` runs once per tag plus once with no tags, results are merged |
-| `-json` | Output as JSON array with metadata (includes `tags` field) |
+| `-tags` | Build tags (comma-separated); `go list` runs once per tag value. Use `-` to include an untagged run. |
+| `-json` | Output as JSON array with metadata (includes `tags` field when `-tags` is given) |
 | `-include-no-tests` | Include packages that have no test files |
 | `-relative` | Output `./relative` paths instead of full import paths |
 
@@ -42,18 +42,26 @@ Explicit commit range:
 affected HEAD~5 HEAD
 ```
 
-With integration build tag (also includes all packages visible without
-tags):
+With integration build tag — behaves like `go test -tags integration`
+(sees unconstrained code plus integration-gated code):
 
 ```
 affected -tags integration HEAD~5 HEAD
 ```
 
-Multiple tags — runs `go list` once with no tags, once with
-`integration`, and once with `fips`, then merges:
+Multiple tags — runs `go list` once with `integration` and once with
+`fips`, then merges:
 
 ```
 affected -tags integration,fips HEAD~5 HEAD
+```
+
+Include an explicit untagged run alongside integration (captures files
+gated with `//go:build !integration` that would be hidden under the
+integration tag):
+
+```
+affected '-tags=-,integration' HEAD~5 HEAD
 ```
 
 JSON output showing which packages were directly changed, transitively
@@ -63,19 +71,27 @@ affected, and which tag configurations include them:
 affected -json -tags integration HEAD~3 HEAD
 ```
 
-Example JSON entry:
+Example JSON entries:
 
 ```json
-{
-  "import_path": "example.com/mod/pkg/foo",
-  "direct": true,
-  "tags": ["-", "integration"]
-}
+[
+  {
+    "import_path": "example.com/mod/pkg/foo",
+    "direct": true,
+    "tags": ["integration"]
+  },
+  {
+    "import_path": "example.com/mod/pkg/bar",
+    "direct": false,
+    "tags": ["-", "integration"]
+  }
+]
 ```
 
 The `tags` array lists each configuration that includes the package:
 `"-"` means visible with no build tags, named entries mean the package
-is visible (or gains additional edges) under that tag.
+is visible under that tag. When no `-tags` flag is given, the field is
+omitted entirely.
 
 ## How it works
 
@@ -83,9 +99,8 @@ is visible (or gains additional edges) under that tag.
 2. Maps each changed file to its owning Go package (walking up from
    subdirectories like `testdata/` to find the nearest enclosing package).
 3. Builds a reverse import graph of the module using `go list -json ./...`.
-   When `-tags` is specified, runs `go list` once per tag (plus once with
-   no tags) and merges the results, recording which configurations each
-   package belongs to.
+   When `-tags` is specified, runs `go list` once per tag value and merges
+   the results, recording which configurations each package belongs to.
 4. If `go.mod` changed, diffs the require/replace directives to find
    external modules whose version changed, then identifies internal
    packages that transitively depend on those modules.
